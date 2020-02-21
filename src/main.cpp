@@ -2413,8 +2413,10 @@ void static UpdateTip(CBlockIndex* pindexNew)
 {
     if (!IsInitialBlockDownload() ||
        (IsInitialBlockDownload() && !g_mncomms_init)) {
-       uint64_t tempKey = 0;
-       calculateIVKey(tempKey);
+        if (pindexNew->nHeight + 1 > 2000) {
+            uint64_t tempKey = 0;
+            calculateIVKey(tempKey);
+        }
     }
 
     chainActive.SetTip(pindexNew);
@@ -5424,14 +5426,17 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             }
         }
     } else {
-        //probably one the extensions
         obfuScationPool.ProcessMessageObfuscation(pfrom, strCommand, vRecv);
+        ///////////////////////////////////////////////////////////////////////////////////ENCRYPT///START///
         mnodeman.ProcessMessage(pfrom, strCommand, vRecv);
+        ///////////////////////////////////////////////////////////////////////////////////ENCRYPT///END/////
         budget.ProcessMessage(pfrom, strCommand, vRecv);
         masternodePayments.ProcessMessageMasternodePayments(pfrom, strCommand, vRecv);
         ProcessMessageSwiftTX(pfrom, strCommand, vRecv);
         ProcessSpork(pfrom, strCommand, vRecv);
+        ///////////////////////////////////////////////////////////////////////////////////ENCRYPT///START///
         masternodeSync.ProcessMessage(pfrom, strCommand, vRecv);
+        ///////////////////////////////////////////////////////////////////////////////////ENCRYPT///END/////
     }
 
 

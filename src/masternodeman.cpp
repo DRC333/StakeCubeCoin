@@ -8,6 +8,7 @@
 #include "activemasternode.h"
 #include "addrman.h"
 #include "masternode.h"
+#include "mncomms.h"
 #include "obfuscation.h"
 #include "spork.h"
 #include "util.h"
@@ -729,6 +730,38 @@ void CMasternodeMan::ProcessMessage(CNode* pfrom, std::string& strCommand, CData
     if (!masternodeSync.IsBlockchainSynced()) return;
 
     LOCK(cs_process_message);
+
+
+    // vRecv -> encryptDataOut
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+    char offTheWire[4096];
+    int offTheWireLen = vRecv.size();
+    memcpy(offTheWire,vRecv.data() /*reinterpret_cast<char*>(&vRecv)*/,offTheWireLen);
+
+    char offTheWireHex[8192];
+    memset(offTheWireHex,0,8192);
+    for (int i=0; i<offTheWireLen; i++)
+       sprintf(offTheWireHex+(i*2),"%02hhx",offTheWire[i]);
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+    int encryptDataOutLen;         // holds length of encrypted data
+    char encryptDataOut[65536];     // holds encrypted data
+    encrypt((unsigned char*)offTheWireHex, strlen(offTheWireHex), (unsigned char*)encryptDataOut, encryptDataOutLen);
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+    // encryptDataOut -> vRecv
+
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+    int decryptDataLen;
+    char decryptedHex[8192];
+    decrypt((unsigned char*)encryptDataOut, encryptDataOutLen, (unsigned char*)decryptedHex, decryptDataLen);
+    char decryptOffTheWireHex[8192];
+    memset(decryptOffTheWireHex,0,8192);
+
+    printf("%s\n", decryptedHex);
+    /////////////////////////////////////////////////////////////////////////////////////////////////
+
 
     if (strCommand == "mnb") { //Masternode Broadcast
         CMasternodeBroadcast mnb;

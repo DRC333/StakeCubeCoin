@@ -117,6 +117,7 @@ public:
     void resize(size_type n, value_type c = 0) { vch.resize(n + nReadPos, c); }
     void reserve(size_type n) { vch.reserve(n + nReadPos); }
     const_reference operator[](size_type pos) const { return vch[pos + nReadPos]; }
+    value_type* data() { return vch.data() + nReadPos; }
     reference operator[](size_type pos) { return vch[pos + nReadPos]; }
     void clear()
     {

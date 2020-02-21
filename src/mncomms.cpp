@@ -59,37 +59,85 @@ void calculateIVKey(uint64_t& key)
     return;
 }
 
-bool decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *key, unsigned char *iv, unsigned char *plaintext, int *plaintext_len)
+//! return binary equivalent
+unsigned char binvalue(const char v)
 {
-    EVP_CIPHER_CTX *ctx;
-    int len;
+	if(v >= '0' && v <= '9')
+		return v-'0';
 
-    if(!(ctx = EVP_CIPHER_CTX_new())) return false;
-    if(!EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) return false;
-    if(!EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext, ciphertext_len)) return false;
-    plaintext_len = &len;
+	if(v >= 'a' && v <= 'f')
+		return v-'a'+10;
 
-    if(!EVP_DecryptFinal_ex(ctx, plaintext + len, &len)) return false;
-    plaintext_len += len;
-
-    EVP_CIPHER_CTX_free(ctx);
-    return true;
+	return 0;
 }
 
-bool encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *key, unsigned char *iv, unsigned char *ciphertext, int *ciphertext_len)
+//! binary to hexstring
+void hexlify(char *hex, const unsigned char *bin, int len)
 {
-    EVP_CIPHER_CTX *ctx;
+    hex[0] = 0;
+    for(int i=0; i < len; i++)
+        sprintf(hex+strlen(hex), "%02x", bin[i]);
+}
+
+//! hexstring to binary
+void binlify(unsigned char *bin, const char *hex)
+{
+    int len = strlen(hex);
+    for(int i=0; i<len/2; i++)
+        bin[i] = binvalue(hex[i*2])<<4 | binvalue(hex[i*2+1]);
+}
+
+//! encrypt plaintext (plaintext_len) into ciphertext
+int encrypt(unsigned char *plaintext, int plaintext_len, unsigned char *ciphertext, int &ciphertext_len)
+{
     int len;
 
-    if(!(ctx = EVP_CIPHER_CTX_new())) return false;
-    if(!EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), NULL, key, iv)) return false;
-    if(!EVP_EncryptUpdate(ctx, ciphertext, &len, plaintext, plaintext_len)) return false;
-    ciphertext_len = &len;
+    //! iv
+    unsigned char iv[16];
+    uint64_t *storedIVKey = getIVKey();
+    memcpy(iv,&storedIVKey,8);
+    memcpy(iv+8,&storedIVKey,8);
 
-    if(!EVP_EncryptFinal_ex(ctx, ciphertext + len, &len)) return false;
+    //! convert input into buffer
+    unsigned char buffer[4096];
+    memset(buffer,0,4096);
+    hexlify((char *)buffer, (const unsigned char*)plaintext, plaintext_len);
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_EncryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, (const unsigned char *)getKey(), iv);
+    EVP_EncryptUpdate(ctx, ciphertext, &len, buffer, strlen((const char*)buffer));
+    ciphertext_len = len;
+    EVP_EncryptFinal_ex(ctx, ciphertext + len, &len);
     ciphertext_len += len;
 
     EVP_CIPHER_CTX_free(ctx);
-    return true;
+
+    return ciphertext_len;
+}
+
+//! decrypt ciphertext (ciphertext_len) into plaintext
+int decrypt(unsigned char *ciphertext, int ciphertext_len, unsigned char *plaintext, int &plaintext_len)
+{
+    int len;
+
+    //! iv
+    unsigned char iv[16];
+    uint64_t *storedIVKey = getIVKey();
+    memcpy(iv,&storedIVKey,8);
+    memcpy(iv+8,&storedIVKey,8);
+
+    //! convert input into buffer
+    unsigned char buffer[4096];
+    memset(buffer,0,4096);
+    binlify(buffer, (const char*)ciphertext);
+
+    EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
+    EVP_DecryptInit_ex(ctx, EVP_aes_256_cbc(), nullptr, (const unsigned char *)getKey(), iv);
+    EVP_DecryptUpdate(ctx, plaintext, &len, buffer, 8+ciphertext_len);
+    plaintext_len = len;
+    EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
+    plaintext_len += len;
+
+    EVP_CIPHER_CTX_free(ctx);
 }
 
