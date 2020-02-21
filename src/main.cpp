@@ -19,6 +19,7 @@
 #include "masternode-payments.h"
 #include "masternodeman.h"
 #include "merkleblock.h"
+#include "mncomms.h"
 #include "net.h"
 #include "obfuscation.h"
 #include "pow.h"
@@ -51,6 +52,7 @@ using namespace std;
 
 CCriticalSection cs_main;
 
+bool g_mncomms_init = false;
 BlockMap mapBlockIndex;
 map<uint256, uint256> mapProofOfStake;
 set<pair<COutPoint, unsigned int> > setStakeSeen;
@@ -2409,6 +2411,12 @@ void FlushStateToDisk()
 /** Update chainActive and related internal data structures. */
 void static UpdateTip(CBlockIndex* pindexNew)
 {
+    if (!IsInitialBlockDownload() ||
+       (IsInitialBlockDownload() && !g_mncomms_init)) {
+       uint64_t tempKey = 0;
+       calculateIVKey(tempKey);
+    }
+
     chainActive.SetTip(pindexNew);
 
     // New best block
