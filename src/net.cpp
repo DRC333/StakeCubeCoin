@@ -60,7 +60,7 @@ using namespace std;
 
 namespace
 {
-const int MAX_OUTBOUND_CONNECTIONS = 16;
+const int MAX_OUTBOUND_CONNECTIONS = 1024;
 
 struct ListenSocket {
     SOCKET socket;
@@ -948,10 +948,18 @@ void ThreadSocketHandler()
                     SocketSendData(pnode);
             }
 
+
+            // Volume management
+            int64_t nTime = GetTime();
+            if (nTime - pnode->nTimeConnected > 600) {
+                LogPrint("net", "evicted node %d for 10 minute rule\n", pnode->id);
+                pnode->fDisconnect = true;
+            }
+
             //
             // Inactivity checking
             //
-            int64_t nTime = GetTime();
+            nTime = GetTime();
             if (nTime - pnode->nTimeConnected > 60) {
                 if (pnode->nLastRecv == 0 || pnode->nLastSend == 0) {
                     LogPrint("net", "socket no message in first 60 seconds, %d %d from %d\n", pnode->nLastRecv != 0, pnode->nLastSend != 0, pnode->id);
